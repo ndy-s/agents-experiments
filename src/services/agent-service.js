@@ -1,55 +1,101 @@
 import { getAIClient } from "./ai-clients/index.js";
 import { pendingApiCalls, PENDING_TIMEOUT } from "./pending-api.js";
 
-export async function handleAgentMessage(userMessage, msgKey, sock) {
+export async function handleAgentMessage(sock, msg) {
     try {
-        const aiClient = getAIClient();
-        let response = await aiClient.processUserInput(userMessage);
+        const text =
+            msg.message.conversation ||
+            msg.message.extendedTextMessage?.text ||
+            "";
 
-        let message;
+        const aiClient = getAIClient();
+        const response = await aiClient.processUserInput(text);
+        const msgKey = msg.key;
+
         if (!response.inScope) {
-            message = "Maaf, saya cuma bisa bantu soal pinjaman (LNO8888C.SVC) atau portofolio (LNO8888D.SVC) ya.";
-        } else if (response.action === "response") {
-            message = response.text;
-        } else if (response.action === "api_call") {
+            await sock.sendMessage(
+                msgKey.remoteJid, 
+                { text: "Sorry, I can only help with loan creation (LNO8888C.SVC) or portfolio manipulation (LNO8888D.SVC) requests." }, 
+                { quoted: msg }
+            );
+            return;
+        }
+
+        if (response.action === "response") {
+            await sock.sendMessage(
+                msgKey.remoteJid, 
+                { text: response.text }, 
+                { quoted: msg }
+            );
+            return;
+        }
+
+        if (response.action === "api_call") {
             const { api, params } = response;
             const missingFields = [];
 
             if (api === "LNO8888D.SVC") {
-                if (!params.pgmType) missingFields.push("jenis program (pgmType)");
-                if (!params.refNo) missingFields.push("nomor referensi (refNo)");
+                if (!params.pgmType) missingFields.push("program type (pgmType)");
+                if (!params.refNo) missingFields.push("reference number (refNo)");
             }
-            if (api === "LNO8888C.SVC" && !params.prdCd) missingFields.push("kode produk (prdCd)");
+
+            if (api === "LNO8888C.SVC" && !params.prdCd) missingFields.push("product code (prdCd)");
 
             if (missingFields.length > 0) {
-                message = `Eh, kayaknya ada yang kurang nih: ${missingFields.join(", ")}. Bisa isi dulu sebelum kita lanjut?`;
-            } else {
-                const sentMsg = await sock.sendMessage(msgKey.remoteJid, {
-                    text: `Kamu yakin ingin mengeksekusi panggilan API ke ${api} dengan parameter:\n${JSON.stringify(params, null, 2)}\n\nReact dengan 👍 untuk setuju.`,
-                });
-
-                pendingApiCalls[sentMsg.key.id] = {
-                    userJid: msgKey.remoteJid,
-                    api,
-                    params,
-                    timeout: setTimeout(async () => {
-                        if (pendingApiCalls[sentMsg.key.id]) {
-                            await sock.sendMessage(msgKey.remoteJid, {
-                                text: "⏰ Panggilan API dibatalkan karena sudah lewat batas waktu.",
-                                edit: sentMsg.key,
-                            });
-                            delete pendingApiCalls[sentMsg.key.id];
-                        }
-                    }, PENDING_TIMEOUT),
-                };
+                await sock.sendMessage(
+                    msgKey.remoteJid, 
+                    { text: `It looks like some fields are missing: ${missingFields.join(", ")}. Please fill them in before we continue.` }, 
+                    { quoted: msg }
+                );
+                return;
             }
-        } else {
-            message = "Ups, sepertinya ada masalah";
+
+            const totalSeconds = Math.floor(PENDING_TIMEOUT / 1000); 
+
+            const sentMsg = await sock.sendMessage(
+                msgKey.remoteJid,
+                { text: formatPendingMessage(api, params, totalSeconds) },
+                { quoted: msg }
+            );
+
+            pendingApiCalls[sentMsg.key.id] = {
+                userJid: msgKey.remoteJid,
+                api,
+                params,
+                msgKey: sentMsg.key,
+                timeout: setTimeout(async () => {
+                    const pending = pendingApiCalls[sentMsg.key.id];
+                    if (!pending) return;
+
+                    await sock.sendMessage(pending.userJid, {
+                        text: `⏰ API call *${pending.api}* cancelled due to timeout.`,
+                        edit: pending.msgKey, 
+                    });
+
+                    delete pendingApiCalls[sentMsg.key.id];
+                }, PENDING_TIMEOUT),
+            };
+
+            return;
         }
 
-        return message;
-    } catch (e) {
-        console.error("API error:", e);
-        return "Ups, sepertinya ada masalah";
+        await sock.sendMessage(
+            msgKey.remoteJid, 
+            { text: "Oops, something went wrong while processing your request." }, 
+            { quoted: msg }
+        );
+    } catch (error) {
+        console.error("❌ Agent error:", error);
+        await sock.sendMessage(
+            msgKey.remoteJid, 
+            { text: "Oops, something went wrong while processing your request." }, 
+            { quoted: msg }
+        );
     }
 }
+
+
+function formatPendingMessage(api, params, totalSeconds) {
+    return `⚠️ Please confirm your API call\n\nAPI: *${api}*\nParams:\n${JSON.stringify(params, null, 2)}\n\nReact with 👍 to confirm within ${totalSeconds}s`;
+}
+
