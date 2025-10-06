@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-const required = ["OPENAI_API_KEY"];
+const required = ["OPENAI_API_KEY", "GOOGLEAI_API_KEY"];
 
 for (const key of required) {
     if (!process.env[key]) {
@@ -10,7 +10,10 @@ for (const key of required) {
 }
 
 export const config = {
-    openAiApiKey: process.env.OPENAI_API_KEY,
+    apiKeys: {
+        openAI: process.env.OPENAI_API_KEY,
+        googleAI: process.env.GOOGLEAI_API_KEY,
+    },
     whitelist: process.env.WHITELIST ? process.env.WHITELIST.split(",").map((id) => id.trim()) : [],
 };
 

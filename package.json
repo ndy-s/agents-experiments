@@ -21,6 +21,7 @@
   },
   "homepage": "https://github.com/ndy-s/openai-experiments#readme",
   "dependencies": {
+    "@google/genai": "^1.22.0",
     "@whiskeysockets/baileys": "^6.7.20",
     "dotenv": "^17.2.3",
     "openai": "^6.1.0",

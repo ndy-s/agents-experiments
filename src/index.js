@@ -17,7 +17,7 @@ async function startWhatsApp() {
 
     sock.ev.on("connection.update", ({ connection, lastDisconnect, qr }) => {
         if (qr) qrcode.generate(qr, { small: true });
-        if (connection == "close") {
+        if (connection === "close") {
             const statusCode = lastDisconnect?.error?.output?.statusCode;
             console.log('Connection closed:', statusCode);
 
@@ -26,7 +26,7 @@ async function startWhatsApp() {
             } else {
                 console.log('❌ Logged out. Delete auth_info folder and re-run.');
             }
-        } else if (connection == "open") {
+        } else if (connection === "open") {
             console.log("✅ Bot connected:", sock.user.id);
         }
     });
@@ -45,4 +45,8 @@ async function startWhatsApp() {
     });
 }
 
-startWhatsApp();
+async function main() {
+    startWhatsApp();
+}
+
+main().catch(console.error);
