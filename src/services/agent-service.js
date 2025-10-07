@@ -1,5 +1,6 @@
 import { getAIClient } from "./ai-clients/index.js";
 import { pendingApiCalls, PENDING_TIMEOUT } from "./pending-api.js";
+import { sendAIResponse } from "../utils/messaging.js";
 
 export async function handleAgentMessage(sock, msg) {
     try {
@@ -22,59 +23,64 @@ export async function handleAgentMessage(sock, msg) {
         }
 
         if (response.action === "response") {
-            await sock.sendMessage(
-                msgKey.remoteJid, 
-                { text: response.text }, 
-                { quoted: msg }
-            );
+            // await sock.sendMessage(
+            //     msgKey.remoteJid,
+            //     { text: response.text },
+            //     { quoted: msg }
+            // );
+            await sendAIResponse(sock, msgKey.remoteJid, response.text, msg);
             return;
         }
 
         if (response.action === "api_call") {
-            const { api, params } = response;
-            const missingFields = [];
+            const calls = response.apiCalls;
+            const baseTimeout = PENDING_TIMEOUT;
 
-            if (api === "LNO8888D.SVC") {
-                if (!params.pgmType) missingFields.push("program type (pgmType)");
-                if (!params.refNo) missingFields.push("reference number (refNo)");
-            }
+            for (let i = 0; i < calls.length; i++) {
+                const { api, params } = calls[i];
 
-            if (api === "LNO8888C.SVC" && !params.prdCd) missingFields.push("product code (prdCd)");
+                const missingFields = [];
+                if (api === "LNO8888D.SVC") {
+                    if (!params.pgmType) missingFields.push("program type (pgmType)");
+                    if (!params.refNo) missingFields.push("reference number (refNo)");
+                }
+                if (api === "LNO8888C.SVC" && !params.prdCd) missingFields.push("product code (prdCd)");
+                if (missingFields.length > 0) {
+                    await sock.sendMessage(
+                        msgKey.remoteJid,
+                        { text: `It looks like some fields are missing: ${missingFields.join(", ")}. Please fill them in before we continue.` },
+                        { quoted: msg }
+                    );
+                    return;
+                }
 
-            if (missingFields.length > 0) {
-                await sock.sendMessage(
-                    msgKey.remoteJid, 
-                    { text: `It looks like some fields are missing: ${missingFields.join(", ")}. Please fill them in before we continue.` }, 
+                const adjustedTimeout = baseTimeout + i * 15000;
+                const totalSeconds = Math.floor(adjustedTimeout / 1000);
+
+                const sentMsg = await sock.sendMessage(
+                    msgKey.remoteJid,
+                    { text: formatPendingMessage(api, params, totalSeconds) },
                     { quoted: msg }
                 );
-                return;
+
+                pendingApiCalls[sentMsg.key.id] = {
+                    userJid: msgKey.remoteJid,
+                    api,
+                    params,
+                    msgKey: sentMsg.key,
+                    timeout: setTimeout(async () => {
+                        const pending = pendingApiCalls[sentMsg.key.id];
+                        if (!pending) return;
+
+                        await sock.sendMessage(pending.userJid, {
+                            text: `⏰ API call *${pending.api}* cancelled (no confirmation received).`,
+                            edit: pending.msgKey,
+                        });
+
+                        delete pendingApiCalls[sentMsg.key.id];
+                    }, PENDING_TIMEOUT),
+                };
             }
-
-            const totalSeconds = Math.floor(PENDING_TIMEOUT / 1000); 
-
-            const sentMsg = await sock.sendMessage(
-                msgKey.remoteJid,
-                { text: formatPendingMessage(api, params, totalSeconds) },
-                { quoted: msg }
-            );
-
-            pendingApiCalls[sentMsg.key.id] = {
-                userJid: msgKey.remoteJid,
-                api,
-                params,
-                msgKey: sentMsg.key,
-                timeout: setTimeout(async () => {
-                    const pending = pendingApiCalls[sentMsg.key.id];
-                    if (!pending) return;
-
-                    await sock.sendMessage(pending.userJid, {
-                        text: `⏰ API call *${pending.api}* cancelled (no confirmation received).`,
-                        edit: pending.msgKey, 
-                    });
-
-                    delete pendingApiCalls[sentMsg.key.id];
-                }, PENDING_TIMEOUT),
-            };
 
             return;
         }

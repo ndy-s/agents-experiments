@@ -24,6 +24,7 @@ export class GoogleAIClient extends BaseAI {
                     },
                 });
 
+                console.log(response.text);
                 return response.text;
             } catch (e) {
                 if (e.status === 429) {
@@ -65,36 +66,46 @@ export class GoogleAIClient extends BaseAI {
                     type: Type.BOOLEAN,
                     description: "True if the user's input is within the supported API scope, false otherwise.",
                 },
-                api: {
-                    type: Type.STRING,
-                    enum: ["LNO8888C.SVC", "LNO8888D.SVC"],
-                    nullable: true,
-                    description: "The target API name to call, if applicable.",
-                },
-                params: {
-                    type: Type.OBJECT,
-                    properties: {
-                        pgmType: { type: Type.STRING, nullable: true },
-                        refNo: { type: Type.STRING, nullable: true },
-                        prdCode: { type: Type.STRING, nullable: true },
-                        custNo: { type: Type.STRING, nullable: true },
-                        lonTerm: { type: Type.STRING, nullable: true },
-                        repayPlan: { type: Type.STRING, nullable: true },
-                        limitAmt: { type: Type.STRING, nullable: true },
-                        riskSeg: { type: Type.STRING, nullable: true },
-                        grade: { type: Type.STRING, nullable: true },
-                        groupCd: { type: Type.STRING, nullable: true },
-                        excludeStep: {
-                            type: Type.ARRAY,
-                            items: {
+                apiCalls: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            api: {
                                 type: Type.STRING,
-                                enum: ["SAVE", "CONT", "VERI"],
+                                enum: ["LNO8888C.SVC", "LNO8888D.SVC"],
+                                nullable: true,
+                                description: "The target API name to call, if applicable.",
                             },
-                            nullable: true,
-                            description: "List of process steps to exclude during API execution.",
+                            params: {
+                                type: Type.OBJECT,
+                                properties: {
+                                    pgmType: { type: Type.STRING, nullable: true },
+                                    refNo: { type: Type.STRING, nullable: true },
+                                    prdCode: { type: Type.STRING, nullable: true },
+                                    custNo: { type: Type.STRING, nullable: true },
+                                    lonTerm: { type: Type.STRING, nullable: true },
+                                    repayPlan: { type: Type.STRING, nullable: true },
+                                    limitAmt: { type: Type.STRING, nullable: true },
+                                    riskSeg: { type: Type.STRING, nullable: true },
+                                    grade: { type: Type.STRING, nullable: true },
+                                    groupCd: { type: Type.STRING, nullable: true },
+                                    excludeStep: {
+                                        type: Type.ARRAY,
+                                        items: {
+                                            type: Type.STRING,
+                                            enum: ["SAVE", "CONT", "VERI"],
+                                        },
+                                        nullable: true,
+                                        description: "List of process steps to exclude during API execution.",
+                                    },
+                                },
+                                required: [],
+                                nullable: true,
+                            }
                         },
+                        required: ["api", "params"],
                     },
-                    required: [],
                     nullable: true,
                 },
                 text: {
