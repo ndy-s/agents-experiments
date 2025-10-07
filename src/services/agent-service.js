@@ -68,7 +68,7 @@ export async function handleAgentMessage(sock, msg) {
                     if (!pending) return;
 
                     await sock.sendMessage(pending.userJid, {
-                        text: `⏰ API call *${pending.api}* cancelled due to timeout.`,
+                        text: `⏰ API call *${pending.api}* cancelled (no confirmation received).`,
                         edit: pending.msgKey, 
                     });
 
@@ -94,8 +94,6 @@ export async function handleAgentMessage(sock, msg) {
     }
 }
 
-
 function formatPendingMessage(api, params, totalSeconds) {
-    return `⚠️ Please confirm your API call\n\nAPI: *${api}*\nParams:\n${JSON.stringify(params, null, 2)}\n\nReact with 👍 to confirm within ${totalSeconds}s`;
+    return `Please confirm your API call to *${api}*.\n${JSON.stringify(params, null, 2)}\n\nReact 👍 to confirm within ${totalSeconds}s`;
 }
-

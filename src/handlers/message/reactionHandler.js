@@ -1,5 +1,6 @@
 import { callBackendAPI } from "../../services/api-service.js";
 import { pendingApiCalls } from "../../services/pending-api.js";
+import { config } from "../../config/env.js";
 
 export async function handleReaction(sock, msg) {
     try {
@@ -25,9 +26,9 @@ export async function handleReaction(sock, msg) {
         delete pendingApiCalls[reactedMsgId];
 
         await sock.sendMessage(
-            pending.userJid, 
+            pending.userJid,
             {
-                text: `✅ Confirmed! Executing *${pending.api}* with parameters:\n${JSON.stringify(pending.params, null, 2)}\n\n⏳ Please wait...`,
+                text: `Confirmed! Executing *${pending.api}*...\n${JSON.stringify(pending.params, null, 2)}\n\n⏳ Please wait...`,
                 edit: pending.msgKey, 
             }
         );
@@ -43,12 +44,26 @@ export async function handleReaction(sock, msg) {
             await sock.sendMessage(
                 pending.userJid, 
                 { 
-                    text: `🎉 *${pending.api}* API executed successfully!\n\nResult:\n${resultText}`, 
+                    text: `🎉 *${pending.api}* API executed successfully!`,
                     edit: pending.msgKey
                 }
             );
         } catch (apiError) {
             console.error("API call failed:", apiError);
+
+            const errorMsg = `❌ Failed to execute *${pending.api}*.\nReason: ${apiError.message}.\nParams: ${JSON.stringify(pending.params, null, 2)}`;
+            const errorRecipientJid = config.errorRecipientJid;
+            if (errorRecipientJid) {
+                await sock.sendMessage(errorRecipientJid, { text: errorMsg });
+            }
+
+            await sock.sendMessage(
+                pending.userJid,
+                {
+                    text: `❌ API call *${pending.api}* failed. Please check the error log.`,
+                    edit: pending.msgKey
+                }
+            );
         }
     } catch (error) {
         console.error("❌ handleReaction error:", error);

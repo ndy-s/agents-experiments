@@ -12,7 +12,7 @@ export async function handleText(sock, msg) {
     } catch (err) {
         console.error("❌ Agent error:", err);
         await sock.sendMessage(remoteJid, {
-            text: "⚠️ Sorry, something went wrong processing your message.",
+            text: "Sorry, something went wrong processing your message.",
         });
 
         await sock.sendPresenceUpdate("paused", remoteJid);

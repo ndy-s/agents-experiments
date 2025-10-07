@@ -20,6 +20,7 @@ export const config = {
         googleAI: process.env.GOOGLEAI_API_KEY,
     },
     whitelist: process.env.WHITELIST ? process.env.WHITELIST.split(",").map((id) => id.trim()) : [],
+    errorRecipientJid: process.env.ERROR_RECIPIENT_JID,
 };
 
 
