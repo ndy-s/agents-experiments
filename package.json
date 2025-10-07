@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon --ignore auth_info src/index.js",
+    "dev": "nodemon --watch src --ignore auth_info --ignore node_modules src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

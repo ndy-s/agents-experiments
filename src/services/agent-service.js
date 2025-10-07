@@ -37,8 +37,9 @@ export async function handleAgentMessage(sock, msg) {
         ].filter(Boolean)
             .join("\n\n");
 
-        const aiClient = getAIClient();
+        const aiClient = getAIClient("openai");
         const response = await aiClient.processUserInput(fullPrompt);
+        console.log(response);
 
         if (!response.inScope) {
             await sock.sendMessage(
