@@ -1,5 +1,5 @@
 import { callBackendAPI } from "../../services/api-service.js";
-import { pendingApiCalls } from "../../services/pending-api.js";
+import { pendingApiCalls } from "../../utils/pending-api.js";
 import { config } from "../../config/env.js";
 
 export async function handleReaction(sock, msg) {
@@ -9,12 +9,12 @@ export async function handleReaction(sock, msg) {
 
         const reactedMsgId = reaction.key.id;
         const reactionEmoji = reaction.text;
-        const reactor = msg.key.participant || msg.key.remoteJid;
+        const reactorJid = msg.key.participant || msg.key.remoteJid;
 
         const pending = pendingApiCalls[reactedMsgId];
         if (!pending) return; 
 
-        if (reactor !== pending.userJid) {
+        if (reactorJid !== pending.userJid) {
             return;
         }
 

@@ -40,7 +40,7 @@ export function splitBySentence(text, maxLen = 300) {
     return chunks;
 }
 
-export function calculateTypingDelay(text, cps = 15) {
+export function calculateTypingDelay(text, cps = 45) {
     const chars = text.length;
     const baseMs = (chars / cps) * 1000;
     const jitter = Math.random() * 500;

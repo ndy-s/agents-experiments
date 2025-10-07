@@ -21,6 +21,7 @@ export const config = {
     },
     whitelist: process.env.WHITELIST ? process.env.WHITELIST.split(",").map((id) => id.trim()) : [],
     errorRecipientJid: process.env.ERROR_RECIPIENT_JID,
+    aiLanguage: process.env.AI_LANGUAGE,
 };
 
 

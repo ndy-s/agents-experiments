@@ -11,7 +11,7 @@ export async function callBackendAPI(api, params) {
         const dd = String(today.getDate()).padStart(2, "0");
         const trsc_dt = `${yyyy}/${mm}/${dd}`;
 
-        const response = await axios.post(`${config.baseApiUrl}${api}`, params, {
+        const response = await axios.post(`${config.baseApiUrl}/${api}`, params, {
             headers: {
                 "Content-Type": "application/json",
                 "sysinfo.subproc_cd": "A330A01",
@@ -19,7 +19,7 @@ export async function callBackendAPI(api, params) {
                 "sysinfo.user_id": "ONEQ005",
                 "sysinfo.trsc_dt": trsc_dt
             },
-            timeout: 10000, // 10s timeout
+            timeout: 0,
         });
 
         return response.data;

@@ -1,6 +1,7 @@
-import { getAIClient } from "./ai-clients/index.js";
-import { pendingApiCalls, PENDING_TIMEOUT } from "./pending-api.js";
-import { sendAIResponse } from "../utils/messaging.js";
+import {getAIClient} from "./ai-clients/index.js";
+import {PENDING_TIMEOUT, pendingApiCalls} from "../utils/pending-api.js";
+import {sendAIResponse} from "../utils/messaging.js";
+import {addMemory, clearMemory, getMemory} from "../utils/memory.js";
 
 export async function handleAgentMessage(sock, msg) {
     try {
@@ -9,9 +10,35 @@ export async function handleAgentMessage(sock, msg) {
             msg.message.extendedTextMessage?.text ||
             "";
 
-        const aiClient = getAIClient();
-        const response = await aiClient.processUserInput(text);
         const msgKey = msg.key;
+        const userJid = msgKey.participant || msgKey.remoteJid;
+
+        let quotedContext = "";
+        const quotedMessage = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
+        if (quotedMessage) {
+            const quotedText =
+                quotedMessage.conversation ||
+                quotedMessage.extendedTextMessage?.text ||
+                "";
+
+            quotedContext = `(Replied to assistant: "${quotedText}")`;
+        }
+
+        const memoryContext = getMemory(userJid)
+            .map(c => `User: ${c.user}\nAssistant: ${c.assistant}`)
+            .join("\n\n");
+
+        const userInput = `User input: ${text}`;
+
+        const fullPrompt = [
+            memoryContext,
+            quotedContext,
+            userInput
+        ].filter(Boolean)
+            .join("\n\n");
+
+        const aiClient = getAIClient();
+        const response = await aiClient.processUserInput(fullPrompt);
 
         if (!response.inScope) {
             await sock.sendMessage(
@@ -23,19 +50,14 @@ export async function handleAgentMessage(sock, msg) {
         }
 
         if (response.action === "response") {
-            // await sock.sendMessage(
-            //     msgKey.remoteJid,
-            //     { text: response.text },
-            //     { quoted: msg }
-            // );
             await sendAIResponse(sock, msgKey.remoteJid, response.text, msg);
+            addMemory(userJid, text, response.text);
+
             return;
         }
 
         if (response.action === "api_call") {
             const calls = response.apiCalls;
-            const baseTimeout = PENDING_TIMEOUT;
-
             for (let i = 0; i < calls.length; i++) {
                 const { api, params } = calls[i];
 
@@ -54,7 +76,7 @@ export async function handleAgentMessage(sock, msg) {
                     return;
                 }
 
-                const adjustedTimeout = baseTimeout + i * 15000;
+                const adjustedTimeout = PENDING_TIMEOUT + i * 15000;
                 const totalSeconds = Math.floor(adjustedTimeout / 1000);
 
                 const sentMsg = await sock.sendMessage(
@@ -64,7 +86,7 @@ export async function handleAgentMessage(sock, msg) {
                 );
 
                 pendingApiCalls[sentMsg.key.id] = {
-                    userJid: msgKey.remoteJid,
+                    userJid: userJid,
                     api,
                     params,
                     msgKey: sentMsg.key,
@@ -81,6 +103,8 @@ export async function handleAgentMessage(sock, msg) {
                     }, PENDING_TIMEOUT),
                 };
             }
+
+            clearMemory(userJid);
 
             return;
         }
